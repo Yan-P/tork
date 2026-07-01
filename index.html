@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TorK — Find your drive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0f1009;
+      --surface:   #181a12;
+      --surface2:  #1f2118;
+      --border:    #2b2e22;
+      --amber:     #c97a06;
+      --amber-lit: #f0a020;
+      --amber-dim: #3d2800;
+      --text:      #e6e1d6;
+      --muted:     #7a7868;
+      --pill-bg:   #252720;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────────── */
+    header {
+      padding: 2.25rem 2.5rem 1.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+    }
+
+    .wordmark {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 3.2rem;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: var(--amber-lit);
+      text-transform: uppercase;
+    }
+
+    .tagline {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Main ───────────────────────────────────────────────────────────────── */
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2.5rem 1.75rem 5rem;
+    }
+
+    /* ── Form ───────────────────────────────────────────────────────────────── */
+    .form-block {
+      display: flex;
+      flex-direction: column;
+      gap: 1.4rem;
+    }
+
+    .section-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      font-size: 0.72rem;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    /* Location field */
+    .field {
+      position: relative;
+    }
+
+    .location-wrap {
+      display: flex;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: border-color 0.15s;
+    }
+
+    .location-wrap:focus-within {
+      border-color: var(--amber);
+    }
+
+    .location-icon {
+      padding: 0 0.9rem;
+      color: var(--muted);
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    input[type="text"] {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-size: 1.05rem;
+      padding: 0.8rem 0.9rem 0.8rem 0;
+      outline: none;
+      width: 100%;
+    }
+
+    input[type="text"]::placeholder { color: var(--muted); }
+
+    /* Autocomplete dropdown */
+    .autocomplete-list {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0; right: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      z-index: 100;
+      overflow: hidden;
+    }
+
+    .autocomplete-list li {
+      list-style: none;
+      padding: 0.65rem 1rem;
+      cursor: pointer;
+      font-size: 0.92rem;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    .autocomplete-list li:last-child { border-bottom: none; }
+    .autocomplete-list li:hover,
+    .autocomplete-list li.active { background: var(--border); }
+
+    /* ── Duration picker ────────────────────────────────────────────────────── */
+    .duration-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.6rem;
+    }
+
+    @media (max-width: 480px) {
+      .duration-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .dur-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      padding: 0.7rem 0;
+      border-radius: 7px;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      user-select: none;
+    }
+
+    .dur-btn span {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 0.15rem;
+      opacity: 0.6;
+    }
+
+    .dur-btn.selected {
+      border-color: var(--amber);
+      background: var(--amber-dim);
+      color: var(--amber-lit);
+    }
+
+    .dur-btn.selected span { opacity: 1; }
+
+    /* ── Vibe toggles ───────────────────────────────────────────────────────── */
+    .vibes-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .vibe {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.45rem 0.9rem;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.87rem;
+      color: var(--muted);
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+
+    .vibe.on {
+      border-color: var(--amber);
+      background: var(--amber-dim);
+      color: var(--amber-lit);
+    }
+
+    .vibe .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .vibe.on .dot { background: var(--amber); }
+
+    /* ── Go button ──────────────────────────────────────────────────────────── */
+    .go-btn {
+      background: var(--amber);
+      color: #0a0900;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 1.15rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 7px;
+      padding: 0.9rem 2.5rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      align-self: flex-start;
+    }
+
+    .go-btn:hover { background: var(--amber-lit); }
+    .go-btn:active { transform: scale(0.98); }
+    .go-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── Divider ────────────────────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2.5rem 0;
+    }
+
+    /* ── Loading ────────────────────────────────────────────────────────────── */
+    .state-msg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 3.5rem 0;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 34px; height: 34px;
+      border: 3px solid var(--border);
+      border-top-color: var(--amber);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .state-msg .label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Route cards ────────────────────────────────────────────────────────── */
+    .routes-grid {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .route-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.6rem;
+      position: relative;
+    }
+
+    .route-card.recommended {
+      border-color: var(--amber);
+      background: linear-gradient(140deg, #1a1600 0%, var(--surface) 55%);
+    }
+
+    .rec-badge {
+      position: absolute;
+      top: -1px; right: 1.4rem;
+      background: var(--amber);
+      color: #0a0900;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 0.28rem 0.75rem 0.22rem;
+      border-radius: 0 0 6px 6px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .route-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 1.55rem;
+      line-height: 1.1;
+      color: var(--text);
+    }
+
+    .route-card.recommended .route-title { color: var(--amber-lit); }
+
+    .route-meta {
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .meta-duration {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .meta-distance {
+      font-size: 0.8rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .meta-type {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+      white-space: nowrap;
+    }
+
+    /* TorK take */
+    .tork-take {
+      font-style: italic;
+      font-size: 0.97rem;
+      color: #c0bbb2;
+      line-height: 1.6;
+      margin-bottom: 1.1rem;
+      border-left: 2px solid var(--amber);
+      padding-left: 0.9rem;
+    }
+
+    .route-card.recommended .tork-take { color: #d4cfc6; }
+
+    /* Waypoints */
+    .waypoints {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem;
+      margin-bottom: 1.1rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .waypoints .wp {
+      background: var(--pill-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.2rem 0.55rem;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+
+    .waypoints .arrow {
+      opacity: 0.35;
+      font-size: 0.7rem;
+    }
+
+    /* Highlights */
+    .highlights {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .pill {
+      background: var(--pill-bg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.28rem 0.65rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .route-card.recommended .pill {
+      border-color: #352900;
+      background: #1e1800;
+    }
+
+    /* Maps button */
+    .maps-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .maps-btn:hover {
+      border-color: var(--amber);
+      color: var(--amber-lit);
+    }
+
+    .route-card.recommended .maps-btn {
+      border-color: #3a2f00;
+      color: #a07820;
+    }
+
+    .route-card.recommended .maps-btn:hover {
+      border-color: var(--amber);
+      color: var(--amber-lit);
+    }
+
+    /* ── Share bar ──────────────────────────────────────────────────────────── */
+    .share-bar {
+      margin-top: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .share-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.55rem 1.1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .share-btn:hover { border-color: var(--amber); color: var(--amber-lit); }
+
+    .share-copied {
+      font-size: 0.82rem;
+      color: #5a9e5a;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .share-copied.visible { opacity: 1; }
+
+    /* ── Error ──────────────────────────────────────────────────────────────── */
+    .error-box {
+      background: #220e0e;
+      border: 1px solid #5a2020;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      color: #e07070;
+      font-size: 0.9rem;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.76rem;
+      color: #3a3c30;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="wordmark">TorK</div>
+    <div class="tagline">Find your drive</div>
+  </div>
+</header>
+
+<main>
+  <div class="form-block">
+
+    <!-- Location -->
+    <div>
+      <div class="section-label">Where are you starting from?</div>
+      <div class="field" id="field-location">
+        <div class="location-wrap">
+          <span class="location-icon">◎</span>
+          <input type="text" id="location" placeholder="Town, postcode, or landmark" autocomplete="off" />
+        </div>
+        <ul class="autocomplete-list" id="ac-location" hidden></ul>
+      </div>
+    </div>
+
+    <!-- Duration -->
+    <div>
+      <div class="section-label">How long do you have?</div>
+      <div class="duration-grid">
+        <button class="dur-btn" data-dur="1 hour">1h<span>Quick blast</span></button>
+        <button class="dur-btn" data-dur="2 hours">2h<span>Good run</span></button>
+        <button class="dur-btn selected" data-dur="3 hours">3h<span>Proper drive</span></button>
+        <button class="dur-btn" data-dur="half a day">½ day<span>Full indulgence</span></button>
+      </div>
+    </div>
+
+    <!-- Vibes -->
+    <div>
+      <div class="section-label">What are you after?</div>
+      <div class="vibes-grid" id="vibes">
+        <div class="vibe" data-vibe="Twisty roads and driver engagement"><span class="dot"></span>🔄 Twisty roads</div>
+        <div class="vibe" data-vibe="Big views and scenic vistas"><span class="dot"></span>🌄 Big views</div>
+        <div class="vibe" data-vibe="Coastal roads and clifftops"><span class="dot"></span>🌊 Coastal</div>
+        <div class="vibe" data-vibe="Mountain passes and elevation"><span class="dot"></span>🏔 Mountains</div>
+        <div class="vibe" data-vibe="Forest and woodland roads"><span class="dot"></span>🌲 Forest</div>
+        <div class="vibe" data-vibe="Quiet countryside lanes"><span class="dot"></span>🌿 Countryside</div>
+        <div class="vibe" data-vibe="Avoid motorways and main roads"><span class="dot"></span>🚫 No motorways</div>
+        <div class="vibe" data-vibe="River valleys and estuaries"><span class="dot"></span>🏞 River valley</div>
+      </div>
+    </div>
+
+    <button class="go-btn" id="go-btn">Plan my drive</button>
+  </div>
+
+  <hr class="divider" id="divider" hidden />
+
+  <div id="results"></div>
+</main>
+
+<footer>TorK &mdash; not the fastest, not the cheapest &mdash; the most interesting</footer>
+
+<script>
+  // ── State ────────────────────────────────────────────────────────────────────
+  let acSession   = crypto.randomUUID();
+  let activeVibes = new Set();
+  let selectedDur = '3 hours';
+
+  // ── Duration picker ──────────────────────────────────────────────────────────
+  document.querySelectorAll('.dur-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedDur = btn.dataset.dur;
+    });
+  });
+
+  // ── Vibe toggles ─────────────────────────────────────────────────────────────
+  document.querySelectorAll('.vibe').forEach(v => {
+    v.addEventListener('click', () => {
+      const vibe = v.dataset.vibe;
+      if (activeVibes.has(vibe)) { activeVibes.delete(vibe); v.classList.remove('on'); }
+      else { activeVibes.add(vibe); v.classList.add('on'); }
+    });
+  });
+
+  // ── Autocomplete ─────────────────────────────────────────────────────────────
+  (function setupAutocomplete() {
+    const input = document.getElementById('location');
+    const list  = document.getElementById('ac-location');
+    let timer;
+    let activeIndex = -1;
+    let suggestions = [];
+
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      const val = input.value.trim();
+      if (val.length < 2) { list.hidden = true; return; }
+      timer = setTimeout(() => fetchSuggestions(val), 280);
+    });
+
+    input.addEventListener('keydown', e => {
+      if (list.hidden) return;
+      if (e.key === 'ArrowDown')  { e.preventDefault(); setActive(activeIndex + 1); }
+      if (e.key === 'ArrowUp')    { e.preventDefault(); setActive(activeIndex - 1); }
+      if (e.key === 'Enter')      { e.preventDefault(); if (activeIndex >= 0) select(activeIndex); }
+      if (e.key === 'Escape')     { list.hidden = true; }
+    });
+
+    document.addEventListener('click', e => {
+      if (!input.contains(e.target) && !list.contains(e.target)) list.hidden = true;
+    });
+
+    async function fetchSuggestions(query) {
+      try {
+        const url = `/autocomplete?input=${encodeURIComponent(query)}&sessiontoken=${acSession}`;
+        const res  = await fetch(url);
+        const data = await res.json();
+        suggestions = (data.predictions || []).slice(0, 5);
+        renderList();
+      } catch { list.hidden = true; }
+    }
+
+    function renderList() {
+      activeIndex = -1;
+      list.innerHTML = '';
+      if (!suggestions.length) { list.hidden = true; return; }
+      suggestions.forEach((s, i) => {
+        const li = document.createElement('li');
+        li.textContent = s.description;
+        li.addEventListener('mousedown', e => { e.preventDefault(); select(i); });
+        list.appendChild(li);
+      });
+      list.hidden = false;
+    }
+
+    function setActive(i) {
+      const items = list.querySelectorAll('li');
+      if (!items.length) return;
+      activeIndex = (i + items.length) % items.length;
+      items.forEach((el, idx) => el.classList.toggle('active', idx === activeIndex));
+    }
+
+    function select(i) {
+      input.value = suggestions[i].description;
+      list.hidden = true;
+      acSession = crypto.randomUUID();
+    }
+  })();
+
+  // ── URL state ─────────────────────────────────────────────────────────────────
+  function loadFromURL() {
+    const p = new URLSearchParams(location.search);
+    if (p.get('from'))  document.getElementById('location').value = p.get('from');
+    if (p.get('dur')) {
+      const dur = p.get('dur');
+      document.querySelectorAll('.dur-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.dur === dur);
+      });
+      selectedDur = dur;
+    }
+    const vibes = p.get('vibes');
+    if (vibes) {
+      vibes.split('|').forEach(vibe => {
+        const dec = decodeURIComponent(vibe);
+        const el  = document.querySelector('.vibe[data-vibe="' + dec + '"]');
+        if (el) { el.classList.add('on'); activeVibes.add(dec); }
+      });
+    }
+    if (p.get('from')) {
+      setTimeout(() => document.getElementById('go-btn').click(), 400);
+    }
+  }
+
+  function buildShareURL(loc) {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.searchParams.set('from', loc);
+    url.searchParams.set('dur', selectedDur);
+    if (activeVibes.size) {
+      url.searchParams.set('vibes', [...activeVibes].map(encodeURIComponent).join('|'));
+    }
+    return url.toString();
+  }
+
+  function mapsURL(origin, waypoints, loop) {
+    const base = 'https://www.google.com/maps/dir/?api=1';
+    const params = new URLSearchParams({
+      origin: origin,
+      destination: loop ? origin : (waypoints[waypoints.length - 1] || origin),
+      travelmode: 'driving',
+    });
+    const middle = loop ? waypoints : waypoints.slice(0, -1);
+    if (middle.length) {
+      params.set('waypoints', middle.join('|'));
+    }
+    return base + '&' + params.toString();
+  }
+
+  document.getElementById('go-btn').addEventListener('click', async () => {
+    const loc = document.getElementById('location').value.trim();
+    if (!loc) { showError('Enter a starting location first.'); return; }
+
+    const btn     = document.getElementById('go-btn');
+    const divider = document.getElementById('divider');
+    const results = document.getElementById('results');
+
+    btn.disabled   = true;
+    divider.hidden = false;
+    results.innerHTML = '<div class="state-msg"><div class="spinner"></div><div class="label">Scouting the roads…</div></div>';
+
+    try {
+      const res = await fetch('/suggest', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ location: loc, duration: selectedDur, vibes: [...activeVibes] }),
+      });
+      const data = await res.json();
+      if (data.error) { showError('Route advisor error: ' + data.error); return; }
+      renderRoutes(data.routes || [], loc);
+    } catch (err) {
+      showError('Something went wrong: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function showError(msg) {
+    document.getElementById('divider').hidden = false;
+    document.getElementById('results').innerHTML = '<div class="error-box">' + escHTML(msg) + '</div>';
+    document.getElementById('go-btn').disabled = false;
+  }
+
+  function renderRoutes(routes, loc) {
+    const results = document.getElementById('results');
+    if (!routes.length) {
+      results.innerHTML = '<div class="state-msg"><div class="label">No routes found</div></div>';
+      return;
+    }
+    const cards    = routes.map(r => routeCardHTML(r, loc)).join('');
+    const shareURL = buildShareURL(loc);
+    results.innerHTML =
+      '<div class="routes-grid">' + cards + '</div>' +
+      '<div class="share-bar">' +
+        '<button class="share-btn" id="share-btn">⧁ Copy shareable link</button>' +
+        '<span class="share-copied" id="share-copied">Link copied!</span>' +
+      '</div>';
+    document.getElementById('share-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(shareURL).then(() => {
+        const el = document.getElementById('share-copied');
+        el.classList.add('visible');
+        setTimeout(() => el.classList.remove('visible'), 2500);
+      });
+    });
+  }
+
+  function routeCardHTML(r, origin) {
+    const rec   = r.recommended === true;
+    const badge = rec ? '<div class="rec-badge">Recommended</div>' : '';
+    const wps   = Array.isArray(r.waypoints) ? r.waypoints : [];
+    const loop  = r.loop !== false;
+
+    let waypointHTML = '';
+    if (wps.length) {
+      const wpSpans = wps.map((wp, i) =>
+        '<span class="wp">' + escHTML(wp) + '</span>' +
+        (i < wps.length - 1 ? '<span class="arrow">›</span>' : '')
+      ).join('');
+      const ret = loop ? '<span class="arrow">›</span><span class="wp" style="opacity:0.45">return</span>' : '';
+      waypointHTML = '<div class="waypoints">' + wpSpans + ret + '</div>';
+    }
+
+    const highlights = (r.highlights || []).map(h =>
+      '<span class="pill">' + escHTML(h.icon) + ' ' + escHTML(h.label) + '</span>'
+    ).join('');
+
+    const mapsLink = wps.length
+      ? '<a class="maps-btn" href="' + escHTML(mapsURL(origin, wps, loop)) + '" target="_blank" rel="noopener">↗ Open in Google Maps</a>'
+      : '';
+
+    const typeLabel = loop ? 'Loop' : 'Out &amp; back';
+
+    return '<div class="route-card' + (rec ? ' recommended' : '') + '">' +
+      badge +
+      '<div class="card-header">' +
+        '<div class="route-title">' + escHTML(r.title || 'Unnamed Route') + '</div>' +
+        '<div class="route-meta">' +
+          '<div class="meta-duration">' + escHTML(r.duration || '') + '</div>' +
+          '<div class="meta-distance">' + escHTML(r.distance || '') + '</div>' +
+          '<div class="meta-type">' + typeLabel + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<p class="tork-take">' + escHTML(r.tork_take || '') + '</p>' +
+      waypointHTML +
+      '<div class="highlights">' + highlights + '</div>' +
+      mapsLink +
+    '</div>';
+  }
+
+  function escHTML(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  loadFromURL();
+</script>
+</body>
+</html>
