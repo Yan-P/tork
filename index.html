@@ -41,6 +41,7 @@
       gap: 1rem;
     }
 
+    /* #21 — "TorK" not "TORK": removed text-transform: uppercase */
     .wordmark {
       font-family: 'Barlow Condensed', sans-serif;
       font-weight: 900;
@@ -48,7 +49,6 @@
       letter-spacing: -0.02em;
       line-height: 1;
       color: var(--amber-lit);
-      text-transform: uppercase;
     }
 
     .tagline {
@@ -147,18 +147,18 @@
     .autocomplete-list li:hover,
     .autocomplete-list li.active { background: var(--border); }
 
-    /* ── Duration picker ────────────────────────────────────────────────────── */
-    .duration-grid {
+    /* ── Shared picker grid (duration / when / time) ────────────────────────── */
+    .picker-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 0.6rem;
     }
 
-    @media (max-width: 480px) {
-      .duration-grid { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 520px) {
+      .picker-grid { grid-template-columns: repeat(2, 1fr); }
     }
 
-    .dur-btn {
+    .pick-btn {
       background: var(--surface);
       border: 1px solid var(--border);
       color: var(--muted);
@@ -172,11 +172,12 @@
       text-align: center;
       transition: border-color 0.15s, color 0.15s, background 0.15s;
       user-select: none;
+      line-height: 1.2;
     }
 
-    .dur-btn span {
+    .pick-btn span {
       display: block;
-      font-size: 0.68rem;
+      font-size: 0.67rem;
       font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -184,13 +185,13 @@
       opacity: 0.6;
     }
 
-    .dur-btn.selected {
+    .pick-btn.selected {
       border-color: var(--amber);
       background: var(--amber-dim);
       color: var(--amber-lit);
     }
 
-    .dur-btn.selected span { opacity: 1; }
+    .pick-btn.selected span { opacity: 1; }
 
     /* ── Vibe toggles ───────────────────────────────────────────────────────── */
     .vibes-grid {
@@ -286,6 +287,20 @@
       color: var(--muted);
     }
 
+    /* ── Weather bar (results area) ─────────────────────────────────────────── */
+    .weather-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+
     /* ── Route cards ────────────────────────────────────────────────────────── */
     .routes-grid {
       display: grid;
@@ -376,6 +391,21 @@
 
     .route-card.recommended .tork-take { color: #d4cfc6; }
 
+    /* Weather warning */
+    .weather-warn {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      background: #221800;
+      border: 1px solid #4a3000;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.82rem;
+      color: #d4900a;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+
     /* Waypoints */
     .waypoints {
       display: flex;
@@ -424,8 +454,14 @@
       background: #1e1800;
     }
 
-    /* Maps button */
-    .maps-btn {
+    /* Nav buttons (Maps + Waze) */
+    .nav-btns {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
@@ -444,19 +480,31 @@
       transition: border-color 0.15s, color 0.15s;
     }
 
-    .maps-btn:hover {
+    /* Google Maps button */
+    .nav-btn.maps:hover {
       border-color: var(--amber);
       color: var(--amber-lit);
     }
 
-    .route-card.recommended .maps-btn {
+    .route-card.recommended .nav-btn.maps {
       border-color: #3a2f00;
       color: #a07820;
     }
 
-    .route-card.recommended .maps-btn:hover {
+    .route-card.recommended .nav-btn.maps:hover {
       border-color: var(--amber);
       color: var(--amber-lit);
+    }
+
+    /* Waze button */
+    .nav-btn.waze {
+      border-color: #1a2e38;
+      color: #3a7a94;
+    }
+
+    .nav-btn.waze:hover {
+      border-color: #33aacc;
+      color: #33ccff;
     }
 
     /* ── Share bar ──────────────────────────────────────────────────────────── */
@@ -541,11 +589,33 @@
     <!-- Duration -->
     <div>
       <div class="section-label">How long do you have?</div>
-      <div class="duration-grid">
-        <button class="dur-btn" data-dur="1 hour">1h<span>Quick blast</span></button>
-        <button class="dur-btn" data-dur="2 hours">2h<span>Good run</span></button>
-        <button class="dur-btn selected" data-dur="3 hours">3h<span>Proper drive</span></button>
-        <button class="dur-btn" data-dur="half a day">½ day<span>Full indulgence</span></button>
+      <div class="picker-grid" id="dur-grid">
+        <button class="pick-btn" data-dur="1 hour">1h<span>Quick blast</span></button>
+        <button class="pick-btn" data-dur="2 hours">2h<span>Good run</span></button>
+        <button class="pick-btn selected" data-dur="3 hours">3h<span>Proper drive</span></button>
+        <button class="pick-btn" data-dur="half a day">½ day<span>Full indulgence</span></button>
+      </div>
+    </div>
+
+    <!-- When -->
+    <div>
+      <div class="section-label">When are you driving?</div>
+      <div class="picker-grid" id="when-grid">
+        <button class="pick-btn selected" id="today-btn" data-when="">Today<span id="today-label">Weekday</span></button>
+        <button class="pick-btn" data-when="This weekend (Saturday or Sunday)">Weekend<span>Sat / Sun</span></button>
+        <button class="pick-btn" data-when="A weekday (Monday to Friday, not a public holiday)">Weekday<span>Mon – Fri</span></button>
+        <button class="pick-btn" data-when="A public holiday — roads may be busier than normal">Public holiday<span>Extra busy</span></button>
+      </div>
+    </div>
+
+    <!-- Time of day -->
+    <div>
+      <div class="section-label">What time of day?</div>
+      <div class="picker-grid" id="time-grid">
+        <button class="pick-btn" data-time="Early morning before 8am — roads quiet, possible sunrise">Dawn<span>Before 8am</span></button>
+        <button class="pick-btn" data-time="Morning between 8am and noon">Morning<span>8am – 12pm</span></button>
+        <button class="pick-btn" data-time="Afternoon between noon and 4pm">Afternoon<span>12 – 4pm</span></button>
+        <button class="pick-btn" data-time="Late afternoon golden hour, 4pm to sunset — best light">Golden hour<span>4pm – sunset</span></button>
       </div>
     </div>
 
@@ -576,16 +646,62 @@
 
 <script>
   // ── State ────────────────────────────────────────────────────────────────────
-  let acSession   = crypto.randomUUID();
-  let activeVibes = new Set();
-  let selectedDur = '3 hours';
+  let acSession    = crypto.randomUUID();
+  let activeVibes  = new Set();
+  let selectedDur  = '3 hours';
+  let selectedWhen = '';
+  let selectedTime = '';
+
+  // ── Auto-detect today (weekday vs weekend) ───────────────────────────────────
+  (function initDayTime() {
+    const now = new Date();
+    const dow = now.getDay(); // 0=Sun, 6=Sat
+    const isWeekend = dow === 0 || dow === 6;
+    const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dow];
+    const todayBtn = document.getElementById('today-btn');
+    todayBtn.dataset.when = isWeekend
+      ? 'Today (' + dayName + ') — weekend, roads may be busier on popular routes'
+      : 'Today (' + dayName + ') — weekday';
+    document.getElementById('today-label').textContent = isWeekend ? 'Weekend' : 'Weekday';
+    selectedWhen = todayBtn.dataset.when;
+
+    // Auto-detect time of day
+    const h = now.getHours();
+    let timeData;
+    if      (h < 8)  timeData = 'Early morning before 8am — roads quiet, possible sunrise';
+    else if (h < 12) timeData = 'Morning between 8am and noon';
+    else if (h < 16) timeData = 'Afternoon between noon and 4pm';
+    else             timeData = 'Late afternoon golden hour, 4pm to sunset — best light';
+    selectedTime = timeData;
+    document.querySelectorAll('#time-grid .pick-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.time === timeData);
+    });
+  })();
 
   // ── Duration picker ──────────────────────────────────────────────────────────
-  document.querySelectorAll('.dur-btn').forEach(btn => {
+  document.querySelectorAll('#dur-grid .pick-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('selected'));
+      document.querySelectorAll('#dur-grid .pick-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       selectedDur = btn.dataset.dur;
+    });
+  });
+
+  // ── When picker ──────────────────────────────────────────────────────────────
+  document.querySelectorAll('#when-grid .pick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#when-grid .pick-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedWhen = btn.dataset.when;
+    });
+  });
+
+  // ── Time picker ──────────────────────────────────────────────────────────────
+  document.querySelectorAll('#time-grid .pick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#time-grid .pick-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedTime = btn.dataset.time;
     });
   });
 
@@ -668,7 +784,7 @@
     if (p.get('from'))  document.getElementById('location').value = p.get('from');
     if (p.get('dur')) {
       const dur = p.get('dur');
-      document.querySelectorAll('.dur-btn').forEach(b => {
+      document.querySelectorAll('#dur-grid .pick-btn').forEach(b => {
         b.classList.toggle('selected', b.dataset.dur === dur);
       });
       selectedDur = dur;
@@ -700,17 +816,24 @@
   function mapsURL(origin, waypoints, loop) {
     const base = 'https://www.google.com/maps/dir/?api=1';
     const params = new URLSearchParams({
-      origin: origin,
+      origin,
       destination: loop ? origin : (waypoints[waypoints.length - 1] || origin),
       travelmode: 'driving',
     });
     const middle = loop ? waypoints : waypoints.slice(0, -1);
-    if (middle.length) {
-      params.set('waypoints', middle.join('|'));
-    }
+    if (middle.length) params.set('waypoints', middle.join('|'));
     return base + '&' + params.toString();
   }
 
+  // #6 — Waze: navigate to first waypoint for loops, last for point-to-point
+  function wazeURL(origin, waypoints, loop) {
+    const dest = loop
+      ? (waypoints[0] || origin)
+      : (waypoints[waypoints.length - 1] || origin);
+    return 'https://waze.com/ul?q=' + encodeURIComponent(dest) + '&navigate=yes';
+  }
+
+  // ── Plan my drive ─────────────────────────────────────────────────────────────
   document.getElementById('go-btn').addEventListener('click', async () => {
     const loc = document.getElementById('location').value.trim();
     if (!loc) { showError('Enter a starting location first.'); return; }
@@ -727,11 +850,17 @@
       const res = await fetch('/suggest', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ location: loc, duration: selectedDur, vibes: [...activeVibes] }),
+        body: JSON.stringify({
+          location:    loc,
+          duration:    selectedDur,
+          vibes:       [...activeVibes],
+          when:        selectedWhen,
+          time_of_day: selectedTime,
+        }),
       });
       const data = await res.json();
       if (data.error) { showError('Route advisor error: ' + data.error); return; }
-      renderRoutes(data.routes || [], loc);
+      renderRoutes(data.routes || [], loc, data.weather_summary);
     } catch (err) {
       showError('Something went wrong: ' + err.message);
     } finally {
@@ -745,20 +874,28 @@
     document.getElementById('go-btn').disabled = false;
   }
 
-  function renderRoutes(routes, loc) {
+  // #8 — weather summary bar above route cards
+  function renderRoutes(routes, loc, weatherSummary) {
     const results = document.getElementById('results');
     if (!routes.length) {
       results.innerHTML = '<div class="state-msg"><div class="label">No routes found</div></div>';
       return;
     }
+
+    const weatherBar = weatherSummary
+      ? '<div class="weather-bar"><span>&#9729;</span><span>' + escHTML(weatherSummary) + '</span></div>'
+      : '';
+
     const cards    = routes.map(r => routeCardHTML(r, loc)).join('');
     const shareURL = buildShareURL(loc);
     results.innerHTML =
+      weatherBar +
       '<div class="routes-grid">' + cards + '</div>' +
       '<div class="share-bar">' +
-        '<button class="share-btn" id="share-btn">⧁ Copy shareable link</button>' +
+        '<button class="share-btn" id="share-btn">&#10753; Copy shareable link</button>' +
         '<span class="share-copied" id="share-copied">Link copied!</span>' +
       '</div>';
+
     document.getElementById('share-btn').addEventListener('click', () => {
       navigator.clipboard.writeText(shareURL).then(() => {
         const el = document.getElementById('share-copied');
@@ -774,22 +911,32 @@
     const wps   = Array.isArray(r.waypoints) ? r.waypoints : [];
     const loop  = r.loop !== false;
 
+    // Waypoints trail
     let waypointHTML = '';
     if (wps.length) {
       const wpSpans = wps.map((wp, i) =>
         '<span class="wp">' + escHTML(wp) + '</span>' +
-        (i < wps.length - 1 ? '<span class="arrow">›</span>' : '')
+        (i < wps.length - 1 ? '<span class="arrow">&#x203A;</span>' : '')
       ).join('');
-      const ret = loop ? '<span class="arrow">›</span><span class="wp" style="opacity:0.45">return</span>' : '';
+      const ret = loop ? '<span class="arrow">&#x203A;</span><span class="wp" style="opacity:0.45">return</span>' : '';
       waypointHTML = '<div class="waypoints">' + wpSpans + ret + '</div>';
     }
+
+    // Weather warning (#8)
+    const weatherWarn = r.weather_warning
+      ? '<div class="weather-warn"><span>&#9888;</span><span>' + escHTML(r.weather_warning) + '</span></div>'
+      : '';
 
     const highlights = (r.highlights || []).map(h =>
       '<span class="pill">' + escHTML(h.icon) + ' ' + escHTML(h.label) + '</span>'
     ).join('');
 
+    // Navigation buttons (#6 — Waze alongside Maps)
     const mapsLink = wps.length
-      ? '<a class="maps-btn" href="' + escHTML(mapsURL(origin, wps, loop)) + '" target="_blank" rel="noopener">↗ Open in Google Maps</a>'
+      ? '<a class="nav-btn maps" href="' + escHTML(mapsURL(origin, wps, loop)) + '" target="_blank" rel="noopener">&#x2197; Google Maps</a>'
+      : '';
+    const wazeLink = wps.length
+      ? '<a class="nav-btn waze" href="' + escHTML(wazeURL(origin, wps, loop)) + '" target="_blank" rel="noopener">&#x2197; Waze</a>'
       : '';
 
     const typeLabel = loop ? 'Loop' : 'Out &amp; back';
@@ -805,9 +952,10 @@
         '</div>' +
       '</div>' +
       '<p class="tork-take">' + escHTML(r.tork_take || '') + '</p>' +
+      weatherWarn +
       waypointHTML +
       '<div class="highlights">' + highlights + '</div>' +
-      mapsLink +
+      '<div class="nav-btns">' + mapsLink + wazeLink + '</div>' +
     '</div>';
   }
 
