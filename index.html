@@ -602,10 +602,10 @@
     <div>
       <div class="section-label">When are you driving?</div>
       <div class="picker-grid" id="when-grid">
-        <button class="pick-btn selected" id="today-btn" data-when="">Today<span id="today-label">Weekday</span></button>
-        <button class="pick-btn" data-when="This weekend (Saturday or Sunday)">Weekend<span>Sat / Sun</span></button>
-        <button class="pick-btn" data-when="A weekday (Monday to Friday, not a public holiday)">Weekday<span>Mon – Fri</span></button>
-        <button class="pick-btn" data-when="A public holiday — roads may be busier than normal">Public holiday<span>Extra busy</span></button>
+        <button class="pick-btn selected" id="today-btn" data-when="" data-day-offset="0">Today<span id="today-label">Weekday</span></button>
+        <button class="pick-btn" id="tomorrow-btn" data-when="" data-day-offset="1">Tomorrow<span id="tomorrow-label">—</span></button>
+        <button class="pick-btn" id="weekend-btn" data-when="This weekend (Saturday or Sunday)" data-day-offset="0">Weekend<span>Sat / Sun</span></button>
+        <button class="pick-btn" data-when="A weekday (Monday to Friday, not a public holiday)" data-day-offset="0">Weekday<span>Mon – Fri</span></button>
       </div>
     </div>
 
@@ -649,22 +649,42 @@
   // ── State ────────────────────────────────────────────────────────────────────
   let acSession    = crypto.randomUUID();
   let activeVibes  = new Set();
-  let selectedDur  = '3 hours';
-  let selectedWhen = '';
-  let selectedTime = '';
+  let selectedDur       = '3 hours';
+  let selectedWhen      = '';
+  let selectedTime      = '';
+  let selectedDayOffset = 0;
 
-  // ── Auto-detect today (weekday vs weekend) ───────────────────────────────────
+  // ── Auto-detect today, tomorrow, and weekend ─────────────────────────────────
   (function initDayTime() {
-    const now = new Date();
-    const dow = now.getDay(); // 0=Sun, 6=Sat
+    const now  = new Date();
+    const dow  = now.getDay(); // 0=Sun, 6=Sat
+    const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     const isWeekend = dow === 0 || dow === 6;
-    const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dow];
+    const dayName   = DAYS[dow];
+
+    // Today
     const todayBtn = document.getElementById('today-btn');
     todayBtn.dataset.when = isWeekend
       ? 'Today (' + dayName + ') — weekend, roads may be busier on popular routes'
       : 'Today (' + dayName + ') — weekday';
     document.getElementById('today-label').textContent = isWeekend ? 'Weekend' : 'Weekday';
-    selectedWhen = todayBtn.dataset.when;
+    selectedWhen      = todayBtn.dataset.when;
+    selectedDayOffset = 0;
+
+    // Tomorrow
+    const tDow      = (dow + 1) % 7;
+    const tName     = DAYS[tDow];
+    const tWeekend  = tDow === 0 || tDow === 6;
+    const tomorrowBtn = document.getElementById('tomorrow-btn');
+    tomorrowBtn.dataset.when = tWeekend
+      ? 'Tomorrow (' + tName + ') — weekend'
+      : 'Tomorrow (' + tName + ') — weekday';
+    document.getElementById('tomorrow-label').textContent = tName;
+
+    // This weekend — days until next Saturday (0 if already weekend)
+    const weekendBtn  = document.getElementById('weekend-btn');
+    const daysToSat   = isWeekend ? 0 : (6 - dow);
+    weekendBtn.dataset.dayOffset = daysToSat;
 
     // Auto-detect time of day
     const h = now.getHours();
@@ -693,7 +713,8 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('#when-grid .pick-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
-      selectedWhen = btn.dataset.when;
+      selectedWhen      = btn.dataset.when;
+      selectedDayOffset = parseInt(btn.dataset.dayOffset) || 0;
     });
   });
 
@@ -857,6 +878,7 @@
           vibes:       [...activeVibes],
           when:        selectedWhen,
           time_of_day: selectedTime,
+          dayOffset:   selectedDayOffset,
         }),
       });
       const data = await res.json();

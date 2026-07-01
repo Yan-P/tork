@@ -60,48 +60,76 @@ const WX = {
   95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Severe thunderstorm'
 };
 
-async function getWeather(lat, lng) {
+async function getWeather(lat, lng, dayOffset = 0) {
   try {
+    const forecastDays = Math.max(7, dayOffset + 2);
     const p = new URLSearchParams({
       latitude: lat, longitude: lng,
       current: 'temperature_2m,weathercode,windspeed_10m,precipitation',
-      daily: 'snowfall_sum,precipitation_sum',
-      forecast_days: 1, timezone: 'auto'
+      daily: 'weathercode,temperature_2m_max,temperature_2m_min,snowfall_sum,precipitation_sum,windspeed_10m_max',
+      forecast_days: forecastDays, timezone: 'auto'
     });
     const r = await fetch('https://api.open-meteo.com/v1/forecast?' + p);
     const d = await r.json();
-    const c = d.current;
-    const cond  = WX[c.weathercode] || 'Variable';
-    const temp  = Math.round(c.temperature_2m);
-    const wind  = Math.round(c.windspeed_10m);
-    const snow  = d.daily?.snowfall_sum?.[0]  || 0;
-    const precip = d.daily?.precipitation_sum?.[0] || 0;
-    let summary = cond + ', ' + temp + '°C';
-    if (wind  > 35) summary += ', strong winds ' + wind + 'km/h';
-    if (precip > 5) summary += ', ' + precip.toFixed(0) + 'mm rain today';
-    if (snow   > 0) summary += ', ' + snow.toFixed(1) + 'cm snow today';
-    return { summary, temp, wind, weathercode: c.weathercode, snow, precip };
+
+    let summary, temp, wind, weathercode, snow, precip;
+
+    if (dayOffset === 0) {
+      // Use live current conditions
+      const c = d.current;
+      weathercode = c.weathercode;
+      temp  = Math.round(c.temperature_2m);
+      wind  = Math.round(c.windspeed_10m);
+      snow  = d.daily?.snowfall_sum?.[0]  || 0;
+      precip = d.daily?.precipitation_sum?.[0] || 0;
+      summary = (WX[weathercode] || 'Variable') + ', ' + temp + '°C';
+      if (wind  > 35) summary += ', strong winds ' + wind + 'km/h';
+      if (precip > 5) summary += ', ' + precip.toFixed(0) + 'mm rain today';
+      if (snow   > 0) summary += ', ' + snow.toFixed(1) + 'cm snow today';
+    } else {
+      // Use daily forecast for the target day
+      const i = dayOffset;
+      weathercode = d.daily?.weathercode?.[i];
+      const tMax = Math.round(d.daily?.temperature_2m_max?.[i] || 0);
+      const tMin = Math.round(d.daily?.temperature_2m_min?.[i] || 0);
+      wind  = Math.round(d.daily?.windspeed_10m_max?.[i] || 0);
+      snow  = d.daily?.snowfall_sum?.[i]  || 0;
+      precip = d.daily?.precipitation_sum?.[i] || 0;
+      temp  = tMax;
+      summary = (WX[weathercode] || 'Variable') + ', ' + tMin + '–' + tMax + '°C';
+      if (wind  > 35) summary += ', strong winds ' + wind + 'km/h';
+      if (precip > 5) summary += ', ' + precip.toFixed(0) + 'mm rain forecast';
+      if (snow   > 0) summary += ', ' + snow.toFixed(1) + 'cm snow forecast';
+    }
+
+    return { summary, temp, wind, weathercode, snow, precip };
   } catch { return null; }
 }
 
 // ── Suggest routes ────────────────────────────────────────────────────────────
 app.post('/suggest', async (req, res) => {
-  const { location, duration, vibes, vehicle, when, time_of_day } = req.body;
+  const { location, duration, vibes, vehicle, when, time_of_day, dayOffset } = req.body;
   if (!location || !duration) return res.status(400).json({ error: 'location and duration required' });
+
+  const dayOffsetNum = Math.max(0, parseInt(dayOffset) || 0);
 
   // Fetch coordinates then weather (sequential — weather needs coords)
   const coords  = await geocode(location);
-  const weather = coords ? await getWeather(coords.lat, coords.lng) : null;
+  const weather = coords ? await getWeather(coords.lat, coords.lng, dayOffsetNum) : null;
 
   const vibesText = vibes && vibes.length
     ? `Driver is looking for: ${vibes.join(', ')}.`
     : 'No specific vibe preference — surprise them.';
 
+  const weatherLabel = dayOffsetNum === 0 ? 'Current weather at start'
+    : dayOffsetNum === 1 ? 'Tomorrow\'s forecast at start'
+    : 'Forecast for driving day at start';
+
   const contextLines = [
-    vehicle     ? `Vehicle: ${vehicle}.`       : '',
-    when        ? `Driving: ${when}.`          : '',
+    vehicle     ? `Vehicle: ${vehicle}.`         : '',
+    when        ? `Driving: ${when}.`            : '',
     time_of_day ? `Time of day: ${time_of_day}.` : '',
-    weather     ? `Current weather at start: ${weather.summary}.` : '',
+    weather     ? `${weatherLabel}: ${weather.summary}.` : '',
   ].filter(Boolean).join(' ');
 
   const systemPrompt = `You are TorK — a route advisor for the driving enthusiast. You know roads the way a car journalist does: the B-roads, the passes, the coastal cliff runs, the river valleys, the forest stretches that GPS ignores.
