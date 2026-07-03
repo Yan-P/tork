@@ -148,6 +148,10 @@ app.post('/suggest', async (req, res) => {
     : dayOffsetNum === 1 ? 'Tomorrow\'s forecast at start'
     : 'Forecast for driving day at start';
 
+  const vehicleInstruction = vehicle
+    ? `VEHICLE CONSTRAINT (non-negotiable): ${vehicle}`
+    : 'Vehicle: standard road car. Sealed roads only. Moderate road character.';
+
   const routeTypeInstruction = routeType === 'out-and-back'
     ? 'Route shape: User wants OUT-AND-BACK routes — drive to a destination and return (same road or a different way back). Set "loop": false for ALL routes.'
     : 'Route shape: User wants LOOP routes — depart and return to roughly the same area via a different road. Set "loop": true for ALL routes.';
@@ -169,10 +173,11 @@ Given a starting location and a desired drive duration, you suggest 3 driving ro
 
 You favour: mountain passes, coastal roads, river valleys, winding B-roads, elevated moorland, estuaries, forest drives, roads with elevation change and committed corners. You avoid: motorways, ring roads, urban crawls, industrial zones.
 
+${vehicleInstruction}
+
 ${routeTypeInstruction}
 
 Factor in the following when choosing and describing routes:
-- Vehicle type: sports cars stay on sealed roads and away from snow/mud/gravel; 4WD can venture onto unsealed tracks
 - Weather: warn of ice, snow, fog, high winds — be specific (e.g. "snow likely above 900m today")
 - Time of day: note golden hour windows, early-morning empty roads, afternoon tourist traffic on popular routes
 - Day type: avoid crowded weekend honeypots; flag known festival/event congestion; note quieter weekday alternatives

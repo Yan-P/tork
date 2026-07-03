@@ -669,6 +669,17 @@
       </div>
     </div>
 
+    <!-- Vehicle -->
+    <div>
+      <div class="section-label">Your vehicle</div>
+      <div class="picker-grid" id="vehicle-grid">
+        <button class="pick-btn selected" data-vehicle="">Any car<span>Sealed roads</span></button>
+        <button class="pick-btn" data-vehicle="Sports car or performance vehicle — sealed roads ONLY, no gravel, dirt, mud or snow. Favour tight technical roads with real corners and elevation change. Flag any surface quality risks.">Sports<span>Twisty sealed</span></button>
+        <button class="pick-btn" data-vehicle="4WD or off-road capable SUV — may include unsealed gravel roads, forestry tracks and fire trails. These are legitimate and often the most interesting route options.">4WD<span>Offroad ok</span></button>
+        <button class="pick-btn" data-vehicle="Family car with children on board — smooth sealed roads, not too aggressively twisty or challenging. Favour comfort and scenery. Good accessible stops appreciated.">Family<span>Comfortable</span></button>
+      </div>
+    </div>
+
     <!-- Route shape -->
     <div>
       <div class="section-label">Route shape</div>
@@ -745,6 +756,7 @@
   let selectedWhen      = '';
   let selectedTime      = '';
   let selectedDayOffset = 0;
+  let selectedVehicle   = '';
   let selectedRouteType = 'loop';
   let activeStops       = new Set();
   let userLat           = null;   // set by GPS button; cleared on manual typing
@@ -814,6 +826,15 @@
       selectedDur = '3 hours';
       document.querySelector('#dur-grid .pick-btn[data-dur="3 hours"]').classList.add('selected');
     }
+  });
+
+  // ── Vehicle picker ───────────────────────────────────────────────────────────
+  document.querySelectorAll('#vehicle-grid .pick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#vehicle-grid .pick-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedVehicle = btn.dataset.vehicle;
+    });
   });
 
   // ── Route shape picker ───────────────────────────────────────────────────────
@@ -1046,6 +1067,7 @@
           dayOffset:   selectedDayOffset,
           userLat,
           userLng,
+          vehicle:     selectedVehicle,
           routeType:   selectedRouteType,
           worthyStops: [...activeStops],
         }),
