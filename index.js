@@ -57,16 +57,52 @@ app.get('/reverse-geocode', async (req, res) => {
   }
 });
 
-// ── Geocode helper ─────────────────────────────────────────────────────────────
+// ── Geocode helper (returns lat/lng + country/state for geographic grounding) ──
 async function geocode(location) {
   if (!GOOGLE_API_KEY) return null;
   try {
     const p = new URLSearchParams({ address: location, key: GOOGLE_API_KEY });
     const r = await fetch('https://maps.googleapis.com/maps/api/geocode/json?' + p);
     const d = await r.json();
-    const loc = d.results?.[0]?.geometry?.location;
-    return loc ? { lat: loc.lat, lng: loc.lng } : null;
+    const result = d.results?.[0];
+    const loc = result?.geometry?.location;
+    if (!loc) return null;
+    const comps = result?.address_components || [];
+    const country = comps.find(c => c.types.includes('country'))?.long_name;
+    const state   = comps.find(c => c.types.includes('administrative_area_level_1'))?.long_name;
+    return { lat: loc.lat, lng: loc.lng, country, state };
   } catch { return null; }
+}
+
+// ── Haversine distance (km) between two lat/lng points ────────────────────────
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ── Geocode a waypoint and check it's plausibly close to the origin ───────────
+async function validateWaypoint(name, originLat, originLng, maxKm) {
+  try {
+    const result = await geocode(name);
+    if (!result) return true; // can't validate → leave it in
+    const dist = haversineKm(originLat, originLng, result.lat, result.lng);
+    return dist <= maxKm;
+  } catch { return true; }
+}
+
+// ── Estimate max reasonable radius (km) from drive duration string ─────────────
+function maxRadiusKm(duration) {
+  const d = (duration || '').toLowerCase();
+  if (d.includes('all day') || d.includes('full day')) return 400;
+  if (d.includes('half') || d.includes('½')) return 280;
+  const hrs = parseFloat(d.match(/[\d.]+/)?.[0] || 0);
+  if (!hrs) return 250;
+  return Math.max(80, Math.min(400, hrs * 75)); // ~75 km/h average radius
 }
 
 // ── Weather helper (Open-Meteo, no key required) ──────────────────────────────
@@ -129,7 +165,7 @@ async function getWeather(lat, lng, dayOffset = 0) {
 
 // ── Suggest routes ────────────────────────────────────────────────────────────
 app.post('/suggest', async (req, res) => {
-  const { location, duration, vibes, vehicle, when, time_of_day, dayOffset, userLat, userLng, routeType, worthyStops } = req.body;
+  const { location, duration, vibes, vehicle, when, time_of_day, dayOffset, userLat, userLng, routeType, destination, worthyStops } = req.body;
   if (!location || !duration) return res.status(400).json({ error: 'location and duration required' });
 
   const dayOffsetNum = Math.max(0, parseInt(dayOffset) || 0);
@@ -148,12 +184,23 @@ app.post('/suggest', async (req, res) => {
     : dayOffsetNum === 1 ? 'Tomorrow\'s forecast at start'
     : 'Forecast for driving day at start';
 
+  // Geographic grounding — prevents Claude hallucinating overseas waypoints
+  const geoConstraint = coords
+    ? `GEOGRAPHIC CONSTRAINT (critical): Origin is at coordinates (${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)})` +
+      (coords.country ? `, in ${coords.state ? coords.state + ', ' : ''}${coords.country}` : '') +
+      `. Every single waypoint must be a real place within driving distance of this origin, in the same country. ` +
+      `Do not suggest places on a different continent or in a different country. ` +
+      `A waypoint with coordinates more than ${maxRadiusKm(duration)} km from the origin is invalid.`
+    : '';
+
   const vehicleInstruction = vehicle
     ? `VEHICLE CONSTRAINT (non-negotiable): ${vehicle}`
     : 'Vehicle: standard road car. Sealed roads only. Moderate road character.';
 
-  const routeTypeInstruction = routeType === 'out-and-back'
-    ? 'Route shape: User wants OUT-AND-BACK routes — drive to a destination and return (same road or a different way back). Set "loop": false for ALL routes.'
+  const routeTypeInstruction = routeType === 'point-to-point'
+    ? `Route shape: User wants POINT-TO-POINT routes from their start location TO "${destination || 'their chosen destination'}". ` +
+      `Do NOT plan the boring direct route — instead, plan an interesting, winding journey that arrives at the destination by exploring characterful roads along the way. ` +
+      `The final waypoint in the waypoints array MUST be (or very close to) "${destination || 'the destination'}". Set "loop": false for ALL routes.`
     : 'Route shape: User wants LOOP routes — depart and return to roughly the same area via a different road. Set "loop": true for ALL routes.';
 
   const stopsInstruction = worthyStops && worthyStops.length
@@ -172,6 +219,8 @@ app.post('/suggest', async (req, res) => {
 Given a starting location and a desired drive duration, you suggest 3 driving routes. These are NOT navigation routes — they are curated driving experiences chosen for character, not efficiency.
 
 You favour: mountain passes, coastal roads, river valleys, winding B-roads, elevated moorland, estuaries, forest drives, roads with elevation change and committed corners. You avoid: motorways, ring roads, urban crawls, industrial zones.
+
+${geoConstraint}
 
 ${vehicleInstruction}
 
@@ -218,12 +267,17 @@ Exactly one route must have "recommended": true. The others are false.
 Possible highlight icons (pick 2-5 per route):
 Mountain pass | Coastal road | Countryside | River valley | Scenic views | Twisty roads | Forest road | Elevation change | Beach road | Dramatic landscape | Open moorland | Seasonal beauty`;
 
+  const destLine = (routeType === 'point-to-point' && destination)
+    ? `Destination: ${destination} (plan 3 different interesting ways to get there — vary the roads, not just the ETA)`
+    : '';
+
   const userPrompt = `Starting location: ${location}
 Desired drive duration: ${duration}
+${destLine}
 ${vibesText}
 ${contextLines}
 
-Suggest 3 driving routes from this starting point. Make them genuinely different from each other — different directions, different characters. Return JSON only.`;
+Suggest 3 driving routes from this starting point. Make them genuinely different from each other — different directions, different characters. Return JSON only.`.replace(/\n{3,}/g, '\n\n').trim();
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -248,7 +302,38 @@ Suggest 3 driving routes from this starting point. Make them genuinely different
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return res.status(500).json({ error: 'Invalid response from route advisor' });
 
-    res.json(JSON.parse(jsonMatch[0]));
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // ── Waypoint sanity check: geocode each waypoint and drop any that are
+    //    implausibly far from the origin (catches Ontario-Canada-style hallucinations).
+    //    For point-to-point routes, allow waypoints within 1.5× the origin→destination
+    //    distance so scenic detours aren't incorrectly stripped.
+    if (coords && Array.isArray(parsed.routes)) {
+      let maxKm = maxRadiusKm(duration);
+      if (routeType === 'point-to-point' && destination) {
+        try {
+          const destCoords = await geocode(destination);
+          if (destCoords) {
+            const originToDest = haversineKm(coords.lat, coords.lng, destCoords.lat, destCoords.lng);
+            maxKm = Math.max(maxKm, originToDest * 1.5);
+          }
+        } catch { /* use default */ }
+      }
+      await Promise.all(parsed.routes.map(async (route) => {
+        if (!Array.isArray(route.waypoints)) return;
+        const checks = await Promise.all(
+          route.waypoints.map(wp => validateWaypoint(wp, coords.lat, coords.lng, maxKm))
+        );
+        const before = route.waypoints.length;
+        route.waypoints = route.waypoints.filter((_, i) => checks[i]);
+        if (route.waypoints.length < before) {
+          route.tork_take = (route.tork_take || '') +
+            ' (Note: one or more waypoints were out of range and have been removed.)';
+        }
+      }));
+    }
+
+    res.json(parsed);
   } catch (err) {
     res.status(500).json({ error: 'Route suggestion failed' });
   }

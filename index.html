@@ -685,7 +685,10 @@
       <div class="section-label">Route shape</div>
       <div class="picker-grid" id="type-grid" style="grid-template-columns: 1fr 1fr;">
         <button class="pick-btn selected" data-type="loop">↩ Loop<span>Return to start</span></button>
-        <button class="pick-btn" data-type="out-and-back">→ Out &amp; back<span>One direction</span></button>
+        <button class="pick-btn" data-type="point-to-point">→ Point to point<span>A to B</span></button>
+      </div>
+      <div class="custom-dur-wrap" id="destination-wrap" hidden>
+        <input type="text" id="destination" class="custom-dur-input" placeholder="Where are you heading? e.g. Ballarat, Phillip Island…" autocomplete="off" />
       </div>
     </div>
 
@@ -843,6 +846,7 @@
       document.querySelectorAll('#type-grid .pick-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       selectedRouteType = btn.dataset.type;
+      document.getElementById('destination-wrap').hidden = (selectedRouteType !== 'point-to-point');
     });
   });
 
@@ -1069,6 +1073,9 @@
           userLng,
           vehicle:     selectedVehicle,
           routeType:   selectedRouteType,
+          destination: selectedRouteType === 'point-to-point'
+                         ? (document.getElementById('destination').value.trim() || '')
+                         : '',
           worthyStops: [...activeStops],
         }),
       });
