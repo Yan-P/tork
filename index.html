@@ -10,15 +10,15 @@
   <style>
     :root {
       --bg:        #0f1009;
-      --surface:   #181a12;
-      --surface2:  #1f2118;
-      --border:    #2b2e22;
+      --surface:   #1c1f14;
+      --surface2:  #222518;
+      --border:    #393d2c;
       --amber:     #c97a06;
       --amber-lit: #f0a020;
       --amber-dim: #3d2800;
       --text:      #e6e1d6;
-      --muted:     #7a7868;
-      --pill-bg:   #252720;
+      --muted:     #9c9a84;
+      --pill-bg:   #272a1c;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -77,12 +77,12 @@
 
     .section-label {
       font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 600;
-      font-size: 0.72rem;
+      font-weight: 700;
+      font-size: 0.78rem;
       letter-spacing: 0.13em;
       text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.55rem;
     }
 
     /* Location field */
@@ -179,7 +179,7 @@
     .pick-btn {
       background: var(--surface);
       border: 1px solid var(--border);
-      color: var(--muted);
+      color: rgba(230, 225, 214, 0.85);
       font-family: 'Barlow Condensed', sans-serif;
       font-weight: 700;
       font-size: 1rem;
@@ -193,14 +193,19 @@
       line-height: 1.2;
     }
 
+    .pick-btn:hover:not(.selected) {
+      border-color: #555a40;
+      color: var(--text);
+    }
+
     .pick-btn span {
       display: block;
-      font-size: 0.67rem;
+      font-size: 0.69rem;
       font-weight: 600;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.07em;
       text-transform: uppercase;
       margin-top: 0.15rem;
-      opacity: 0.6;
+      opacity: 0.75;
     }
 
     .pick-btn.selected {
