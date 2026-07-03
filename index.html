@@ -525,6 +525,128 @@
       color: #33ccff;
     }
 
+    /* ── Save buttons on route cards ───────────────────────────────────────── */
+    .save-btns {
+      display: flex;
+      gap: 6px;
+      margin: 0 0 12px;
+    }
+
+    .save-btn {
+      flex: 1;
+      padding: 6px 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .save-btn:hover { border-color: #555; color: var(--text); }
+    .save-btn.sf    { border-color: var(--amber); color: var(--amber); background: #150f00; }
+    .save-btn.sw    { border-color: #5aabff;      color: #5aabff;      background: #00101f; }
+    .save-btn.sd    { border-color: #3dba64;      color: #3dba64;      background: #001509; }
+
+    /* ── Saved routes panel ─────────────────────────────────────────────────── */
+    .saved-panel {
+      margin-bottom: 20px;
+    }
+
+    .saved-toggle {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 11px 16px;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .saved-toggle:hover  { color: var(--text); border-color: #555; }
+    .saved-toggle.open   { border-radius: 10px 10px 0 0; color: var(--text); }
+    .saved-toggle .chevron { transition: transform 0.2s; }
+    .saved-toggle.open .chevron { transform: rotate(180deg); }
+
+    .saved-body {
+      display: none;
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      background: var(--surface);
+      padding: 4px 16px 14px;
+    }
+
+    .saved-body.open { display: block; }
+
+    .saved-group-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 14px 0 6px;
+    }
+
+    .saved-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .saved-item:last-child { border-bottom: none; }
+
+    .saved-item-info { flex: 1; min-width: 0; }
+
+    .saved-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .saved-item-meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .saved-remove {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 6px;
+      font-size: 15px;
+      line-height: 1;
+      flex-shrink: 0;
+      opacity: 0.5;
+      transition: opacity 0.15s;
+    }
+
+    .saved-remove:hover { opacity: 1; }
+
     /* ── Share bar ──────────────────────────────────────────────────────────── */
     .share-bar {
       margin-top: 2rem;
@@ -746,6 +868,7 @@
 
   <hr class="divider" id="divider" hidden />
 
+  <div id="saved-panel"></div>
   <div id="results"></div>
 </main>
 
@@ -1124,6 +1247,9 @@
         setTimeout(() => el.classList.remove('visible'), 2500);
       });
     });
+
+    attachSaveListeners(routes, loc);
+    renderSavedPanel();
   }
 
   function routeCardHTML(r, origin) {
@@ -1171,7 +1297,17 @@
       ? '<a class="nav-btn waze" href="' + escHTML(wazeURL(origin, wps, loop)) + '" target="_blank" rel="noopener">&#x2197; Waze</a>'
       : '';
 
-    const typeLabel = loop ? 'Loop' : 'Out &amp; back';
+    const typeLabel = loop ? 'Loop' : 'Point to point';
+    const rKey      = routeKey(r);
+    const saved     = loadSaved();
+    const curStatus = saved[rKey]?.status || null;
+
+    const saveBtns =
+      '<div class="save-btns">' +
+        '<button class="save-btn' + (curStatus === 'favourite'     ? ' sf' : '') + '" data-key="' + rKey + '" data-status="favourite">♥ Favourite</button>' +
+        '<button class="save-btn' + (curStatus === 'want-to-drive' ? ' sw' : '') + '" data-key="' + rKey + '" data-status="want-to-drive">◎ Want to drive</button>' +
+        '<button class="save-btn' + (curStatus === 'driven'        ? ' sd' : '') + '" data-key="' + rKey + '" data-status="driven">✓ Driven</button>' +
+      '</div>';
 
     return '<div class="route-card' + (rec ? ' recommended' : '') + '">' +
       badge +
@@ -1188,8 +1324,135 @@
       stopsHTML +
       waypointHTML +
       '<div class="highlights">' + highlights + '</div>' +
+      saveBtns +
       '<div class="nav-btns">' + mapsLink + wazeLink + '</div>' +
     '</div>';
+  }
+
+  // ── Saved routes (localStorage) ────────────────────────────────────────────
+  const SAVE_KEY = 'tork_saved_routes';
+
+  function loadSaved() {
+    try { return JSON.parse(localStorage.getItem(SAVE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+
+  function writeSaved(data) {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  }
+
+  function routeKey(r) {
+    return (r.title || 'route').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50);
+  }
+
+  // Toggle save status; same status again = remove
+  function toggleSave(rKey, route, origin, status) {
+    const data = loadSaved();
+    if (data[rKey]?.status === status) {
+      delete data[rKey];
+    } else {
+      data[rKey] = { ...route, _origin: origin, _status: status, _savedAt: Date.now() };
+    }
+    writeSaved(data);
+    updateCardSaveBtns(rKey);
+    renderSavedPanel();
+  }
+
+  // Refresh the three save buttons for one card after a toggle
+  function updateCardSaveBtns(rKey) {
+    const status = loadSaved()[rKey]?._status || null;
+    const classFor = { favourite: 'sf', 'want-to-drive': 'sw', driven: 'sd' };
+    document.querySelectorAll('.save-btn[data-key="' + rKey + '"]').forEach(btn => {
+      const s = btn.dataset.status;
+      btn.classList.toggle('sf', s === 'favourite'     && status === 'favourite');
+      btn.classList.toggle('sw', s === 'want-to-drive' && status === 'want-to-drive');
+      btn.classList.toggle('sd', s === 'driven'        && status === 'driven');
+    });
+  }
+
+  // Wire save button listeners after renderRoutes sets innerHTML
+  function attachSaveListeners(routes, origin) {
+    document.querySelectorAll('.save-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const rKey   = btn.dataset.key;
+        const status = btn.dataset.status;
+        const route  = routes.find(r => routeKey(r) === rKey);
+        if (route) toggleSave(rKey, route, origin, status);
+      });
+    });
+  }
+
+  // Render the "My Routes" collapsible panel
+  function renderSavedPanel() {
+    const panel = document.getElementById('saved-panel');
+    if (!panel) return;
+    const data = loadSaved();
+    const all  = Object.values(data);
+    if (!all.length) {
+      panel.innerHTML = '';
+      // Only hide divider if results are also empty
+      if (!document.getElementById('results').innerHTML.trim()) {
+        document.getElementById('divider').hidden = true;
+      }
+      return;
+    }
+    document.getElementById('divider').hidden = false;
+
+    const groups = [
+      { key: 'favourite',     label: '♥ Favourites',     cls: 'sf' },
+      { key: 'want-to-drive', label: '◎ Want to drive',  cls: 'sw' },
+      { key: 'driven',        label: '✓ Driven',         cls: 'sd' },
+    ];
+
+    const isOpen = panel.querySelector('.saved-body.open');
+
+    let bodyHTML = '';
+    groups.forEach(g => {
+      const items = all.filter(r => r._status === g.key);
+      if (!items.length) return;
+      bodyHTML += '<div class="saved-group-label ' + g.cls + '">' + g.label + '</div>';
+      items.sort((a, b) => b._savedAt - a._savedAt).forEach(r => {
+        const key = routeKey(r);
+        bodyHTML +=
+          '<div class="saved-item">' +
+            '<div class="saved-item-info">' +
+              '<div class="saved-item-title">' + escHTML(r.title || '') + '</div>' +
+              '<div class="saved-item-meta">' +
+                escHTML(r.distance || '') + (r.distance && r.duration ? ' · ' : '') + escHTML(r.duration || '') +
+                (r._origin ? ' · from ' + escHTML(r._origin) : '') +
+              '</div>' +
+            '</div>' +
+            '<button class="saved-remove" data-remove="' + key + '" title="Remove">×</button>' +
+          '</div>';
+      });
+    });
+
+    const count = all.length;
+    panel.innerHTML =
+      '<div class="saved-panel">' +
+        '<button class="saved-toggle' + (isOpen ? ' open' : '') + '" id="saved-toggle">' +
+          'My Routes (' + count + ')' +
+          '<span class="chevron">&#x25BE;</span>' +
+        '</button>' +
+        '<div class="saved-body' + (isOpen ? ' open' : '') + '" id="saved-body">' +
+          bodyHTML +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('saved-toggle').addEventListener('click', () => {
+      document.getElementById('saved-toggle').classList.toggle('open');
+      document.getElementById('saved-body').classList.toggle('open');
+    });
+
+    panel.querySelectorAll('.saved-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const data = loadSaved();
+        delete data[btn.dataset.remove];
+        writeSaved(data);
+        updateCardSaveBtns(btn.dataset.remove);
+        renderSavedPanel();
+      });
+    });
   }
 
   function escHTML(str) {
@@ -1201,6 +1464,7 @@
   }
 
   loadFromURL();
+  renderSavedPanel();
 </script>
 </body>
 </html>
