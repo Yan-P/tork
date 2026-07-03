@@ -36,6 +36,27 @@ app.get('/autocomplete', async (req, res) => {
   }
 });
 
+// ── Reverse geocode (coords → suburb name) ────────────────────────────────────
+app.get('/reverse-geocode', async (req, res) => {
+  const { lat, lng } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: 'lat/lng required' });
+  if (!GOOGLE_API_KEY) return res.json({ name: '' });
+  try {
+    const p = new URLSearchParams({ latlng: lat + ',' + lng, key: GOOGLE_API_KEY });
+    const r = await fetch('https://maps.googleapis.com/maps/api/geocode/json?' + p);
+    const d = await r.json();
+    const result = d.results?.[0];
+    // Prefer suburb/locality over full formatted address
+    const local = result?.address_components?.find(c =>
+      c.types.includes('locality') || c.types.includes('sublocality_level_1')
+    );
+    const name = local?.long_name || result?.formatted_address || '';
+    res.json({ name });
+  } catch {
+    res.status(500).json({ error: 'Reverse geocode failed' });
+  }
+});
+
 // ── Geocode helper ─────────────────────────────────────────────────────────────
 async function geocode(location) {
   if (!GOOGLE_API_KEY) return null;
@@ -108,13 +129,15 @@ async function getWeather(lat, lng, dayOffset = 0) {
 
 // ── Suggest routes ────────────────────────────────────────────────────────────
 app.post('/suggest', async (req, res) => {
-  const { location, duration, vibes, vehicle, when, time_of_day, dayOffset } = req.body;
+  const { location, duration, vibes, vehicle, when, time_of_day, dayOffset, userLat, userLng } = req.body;
   if (!location || !duration) return res.status(400).json({ error: 'location and duration required' });
 
   const dayOffsetNum = Math.max(0, parseInt(dayOffset) || 0);
 
-  // Fetch coordinates then weather (sequential — weather needs coords)
-  const coords  = await geocode(location);
+  // Use GPS coords from client if available (skips geocoding, more accurate)
+  const coords = (userLat && userLng)
+    ? { lat: parseFloat(userLat), lng: parseFloat(userLng) }
+    : await geocode(location);
   const weather = coords ? await getWeather(coords.lat, coords.lng, dayOffsetNum) : null;
 
   const vibesText = vibes && vibes.length
