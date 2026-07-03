@@ -560,6 +560,56 @@
 
     .share-copied.visible { opacity: 1; }
 
+    /* ── Custom duration input ──────────────────────────────────────────────── */
+    .custom-dur-wrap {
+      margin-top: 0.55rem;
+    }
+
+    .custom-dur-input {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.9rem;
+      padding: 0.6rem 0.9rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .custom-dur-input:focus  { border-color: var(--amber); }
+    .custom-dur-input::placeholder { color: var(--muted); }
+
+    /* ── Worthy stops cards ─────────────────────────────────────────────────── */
+    .route-stops {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem 0.9rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+
+    .stop-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 0.83rem;
+      line-height: 1.4;
+    }
+
+    .stop-item .stop-icon { flex-shrink: 0; }
+
+    .stop-item .stop-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .stop-item .stop-note { color: var(--muted); }
+
     /* ── Error ──────────────────────────────────────────────────────────────── */
     .error-box {
       background: #220e0e;
@@ -612,7 +662,19 @@
         <button class="pick-btn" data-dur="1 hour">1h<span>Quick blast</span></button>
         <button class="pick-btn" data-dur="2 hours">2h<span>Good run</span></button>
         <button class="pick-btn selected" data-dur="3 hours">3h<span>Proper drive</span></button>
-        <button class="pick-btn" data-dur="half a day">½ day<span>Full indulgence</span></button>
+        <button class="pick-btn" data-dur="half a day, roughly 4 to 5 hours">½ day<span>~4–5 hrs</span></button>
+      </div>
+      <div class="custom-dur-wrap">
+        <input type="text" id="custom-dur" class="custom-dur-input" placeholder="Or type a custom duration — e.g. 90 min, 6 hours, all day…" autocomplete="off" />
+      </div>
+    </div>
+
+    <!-- Route shape -->
+    <div>
+      <div class="section-label">Route shape</div>
+      <div class="picker-grid" id="type-grid" style="grid-template-columns: 1fr 1fr;">
+        <button class="pick-btn selected" data-type="loop">↩ Loop<span>Return to start</span></button>
+        <button class="pick-btn" data-type="out-and-back">→ Out &amp; back<span>One direction</span></button>
       </div>
     </div>
 
@@ -635,6 +697,18 @@
         <button class="pick-btn" data-time="Morning between 8am and noon">Morning<span>8am – 12pm</span></button>
         <button class="pick-btn" data-time="Afternoon between noon and 4pm">Afternoon<span>12 – 4pm</span></button>
         <button class="pick-btn" data-time="Late afternoon golden hour, 4pm to sunset — best light">Golden hour<span>4pm – sunset</span></button>
+      </div>
+    </div>
+
+    <!-- Worthy stops -->
+    <div>
+      <div class="section-label">Worthy stops? <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.9em;opacity:0.55">only the genuinely good stuff</span></div>
+      <div class="vibes-grid" id="stops">
+        <div class="vibe" data-stop="winery or cellar door — genuinely notable, top-rated, not a tourist trap"><span class="dot"></span>🍷 Winery</div>
+        <div class="vibe" data-stop="exceptional local café or bakery worth the detour — outstanding coffee or food"><span class="dot"></span>☕ Café</div>
+        <div class="vibe" data-stop="scenic lookout or viewpoint genuinely worth stopping for"><span class="dot"></span>🌄 Viewpoint</div>
+        <div class="vibe" data-stop="heritage site, historic town centre or notable local architecture"><span class="dot"></span>🏛 Heritage</div>
+        <div class="vibe" data-stop="beach or swimming spot accessible from the route"><span class="dot"></span>🏖 Beach / swim</div>
       </div>
     </div>
 
@@ -671,6 +745,8 @@
   let selectedWhen      = '';
   let selectedTime      = '';
   let selectedDayOffset = 0;
+  let selectedRouteType = 'loop';
+  let activeStops       = new Set();
   let userLat           = null;   // set by GPS button; cleared on manual typing
   let userLng           = null;
 
@@ -725,6 +801,27 @@
       document.querySelectorAll('#dur-grid .pick-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       selectedDur = btn.dataset.dur;
+      document.getElementById('custom-dur').value = '';
+    });
+  });
+
+  document.getElementById('custom-dur').addEventListener('input', (e) => {
+    const val = e.target.value.trim();
+    if (val) {
+      document.querySelectorAll('#dur-grid .pick-btn').forEach(b => b.classList.remove('selected'));
+      selectedDur = val;
+    } else {
+      selectedDur = '3 hours';
+      document.querySelector('#dur-grid .pick-btn[data-dur="3 hours"]').classList.add('selected');
+    }
+  });
+
+  // ── Route shape picker ───────────────────────────────────────────────────────
+  document.querySelectorAll('#type-grid .pick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#type-grid .pick-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedRouteType = btn.dataset.type;
     });
   });
 
@@ -747,8 +844,17 @@
     });
   });
 
+  // ── Worthy stops toggles ─────────────────────────────────────────────────────
+  document.querySelectorAll('#stops .vibe').forEach(v => {
+    v.addEventListener('click', () => {
+      const stop = v.dataset.stop;
+      if (activeStops.has(stop)) { activeStops.delete(stop); v.classList.remove('on'); }
+      else { activeStops.add(stop); v.classList.add('on'); }
+    });
+  });
+
   // ── Vibe toggles ─────────────────────────────────────────────────────────────
-  document.querySelectorAll('.vibe').forEach(v => {
+  document.querySelectorAll('#vibes .vibe').forEach(v => {
     v.addEventListener('click', () => {
       const vibe = v.dataset.vibe;
       if (activeVibes.has(vibe)) { activeVibes.delete(vibe); v.classList.remove('on'); }
@@ -940,6 +1046,8 @@
           dayOffset:   selectedDayOffset,
           userLat,
           userLng,
+          routeType:   selectedRouteType,
+          worthyStops: [...activeStops],
         }),
       });
       const data = await res.json();
@@ -1011,6 +1119,17 @@
       ? '<div class="weather-warn"><span>&#9888;</span><span>' + escHTML(r.weather_warning) + '</span></div>'
       : '';
 
+    // Worthy stops
+    const stopsHTML = (r.stops && r.stops.length)
+      ? '<div class="route-stops">' + r.stops.map(s =>
+          '<div class="stop-item">' +
+            '<span class="stop-icon">' + escHTML(s.icon || '') + '</span>' +
+            '<div><span class="stop-name">' + escHTML(s.name || '') + '</span>' +
+            ' <span class="stop-note">— ' + escHTML(s.note || '') + '</span></div>' +
+          '</div>'
+        ).join('') + '</div>'
+      : '';
+
     const highlights = (r.highlights || []).map(h =>
       '<span class="pill">' + escHTML(h.icon) + ' ' + escHTML(h.label) + '</span>'
     ).join('');
@@ -1037,6 +1156,7 @@
       '</div>' +
       '<p class="tork-take">' + escHTML(r.tork_take || '') + '</p>' +
       weatherWarn +
+      stopsHTML +
       waypointHTML +
       '<div class="highlights">' + highlights + '</div>' +
       '<div class="nav-btns">' + mapsLink + wazeLink + '</div>' +

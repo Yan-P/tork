@@ -129,7 +129,7 @@ async function getWeather(lat, lng, dayOffset = 0) {
 
 // ── Suggest routes ────────────────────────────────────────────────────────────
 app.post('/suggest', async (req, res) => {
-  const { location, duration, vibes, vehicle, when, time_of_day, dayOffset, userLat, userLng } = req.body;
+  const { location, duration, vibes, vehicle, when, time_of_day, dayOffset, userLat, userLng, routeType, worthyStops } = req.body;
   if (!location || !duration) return res.status(400).json({ error: 'location and duration required' });
 
   const dayOffsetNum = Math.max(0, parseInt(dayOffset) || 0);
@@ -148,6 +148,14 @@ app.post('/suggest', async (req, res) => {
     : dayOffsetNum === 1 ? 'Tomorrow\'s forecast at start'
     : 'Forecast for driving day at start';
 
+  const routeTypeInstruction = routeType === 'out-and-back'
+    ? 'Route shape: User wants OUT-AND-BACK routes — drive to a destination and return (same road or a different way back). Set "loop": false for ALL routes.'
+    : 'Route shape: User wants LOOP routes — depart and return to roughly the same area via a different road. Set "loop": true for ALL routes.';
+
+  const stopsInstruction = worthyStops && worthyStops.length
+    ? `Worthy stops: Along each route, identify up to 2 genuinely exceptional stops in these categories if they exist on or very near the route: ${worthyStops.join('; ')}. Apply Michelin-standard curation — only recommend stops that are truly worth a detour. Real places only. If no genuinely worthy stop exists for a route, leave the stops array empty rather than fabricating one.`
+    : '';
+
   const contextLines = [
     vehicle     ? `Vehicle: ${vehicle}.`         : '',
     when        ? `Driving: ${when}.`            : '',
@@ -157,15 +165,19 @@ app.post('/suggest', async (req, res) => {
 
   const systemPrompt = `You are TorK — a route advisor for the driving enthusiast. You know roads the way a car journalist does: the B-roads, the passes, the coastal cliff runs, the river valleys, the forest stretches that GPS ignores.
 
-Given a starting location and a desired drive duration, you suggest 3 driving routes. These are NOT point-to-point navigation routes — they are curated driving experiences: loops, figures-of-eight, or out-and-back runs chosen for character, not efficiency.
+Given a starting location and a desired drive duration, you suggest 3 driving routes. These are NOT navigation routes — they are curated driving experiences chosen for character, not efficiency.
 
 You favour: mountain passes, coastal roads, river valleys, winding B-roads, elevated moorland, estuaries, forest drives, roads with elevation change and committed corners. You avoid: motorways, ring roads, urban crawls, industrial zones.
+
+${routeTypeInstruction}
 
 Factor in the following when choosing and describing routes:
 - Vehicle type: sports cars stay on sealed roads and away from snow/mud/gravel; 4WD can venture onto unsealed tracks
 - Weather: warn of ice, snow, fog, high winds — be specific (e.g. "snow likely above 900m today")
 - Time of day: note golden hour windows, early-morning empty roads, afternoon tourist traffic on popular routes
 - Day type: avoid crowded weekend honeypots; flag known festival/event congestion; note quieter weekday alternatives
+
+${stopsInstruction}
 
 Each route must include a realistic list of waypoints — named towns, villages, roads, passes, or landmarks — in driving order. These will be used to construct a Google Maps directions link, so they must be real, locatable places.
 
@@ -185,6 +197,9 @@ Return this exact shape:
       "highlights": [
         { "icon": "emoji", "label": "short label" }
       ],
+      "stops": [
+        { "icon": "emoji", "name": "Name of stop", "note": "One line on why it's genuinely worth it" }
+      ],
       "waypoints": ["Name of place 1", "Name of place 2", "Name of place 3"],
       "loop": true
     }
@@ -192,7 +207,8 @@ Return this exact shape:
 }
 
 Exactly one route must have "recommended": true. The others are false.
-"loop" is true if the route returns near the origin, false for an out-and-back.
+"loop" must match the user's route shape preference.
+"stops" should be an empty array [] if no worthy stops were requested or none exist on this route.
 
 Possible highlight icons (pick 2-5 per route):
 Mountain pass | Coastal road | Countryside | River valley | Scenic views | Twisty roads | Forest road | Elevation change | Beach road | Dramatic landscape | Open moorland | Seasonal beauty`;
